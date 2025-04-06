@@ -1,0 +1,18 @@
+.galleryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.galleryList li {
+  width: calc((100% - 45px) / 4);
+  transition: transform 0.6s ease, box-shadow 0.3s ease;
+}
+
+.galleryList li:hover,
+.galleryList li:focus {
+  cursor: pointer;
+  transform: scale(1.05);
+  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
+}
