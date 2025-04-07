@@ -10,46 +10,79 @@ import ImageModal from './components/ImageModal/ImageModal';
 
 const App = () => {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [images, setImages] = useState([]);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [isLoading, setIsLoadig] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isEmpty, setIsEmpty] = useState(false);
-  const [isVisible, setVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalSrc, setModalSrc] = useState('');
   const [modalAlt, setModalAlt] = useState('');
 
   useEffect(() => {
-    if (!query) return;
-    const fetchImages = async () => {
-      setIsLoadig(true);
-      try {
-        const { images, total_pages } = await getImages(query, page);
-        if (!images.length) {
-          return setIsEmpty(true);
-        }
-        setImages((prevImages) => [...prevImages, ...images]);
-        setVisible(page < total_pages);
-      } catch (error) {
-        setError(error);
-      } finally {
-        setIsLoadig(false);
-      }
-    };
-    fetchImages();
-  }, [query, page]);
+    const savedQuery = localStorage.getItem('query');
+    const savedPage = JSON.parse(localStorage.getItem('page')) || 1;
+    const savedImages = JSON.parse(localStorage.getItem('images')) || [];
 
-  const handleSearchSubmit = (query) => {
+    if (savedQuery) {
+      setQuery(savedQuery);
+      setPage(savedPage);
+      setImages(savedImages);
+      getImages(savedQuery, savedPage).then(({ total_pages }) => {
+        setIsVisible(savedPage < total_pages);
+      });
+    }
+  }, []);
+
+  const handleSearchSubmit = async (newQuery) => {
     setImages([]);
-    setQuery(query);
+    setQuery(newQuery);
     setError(null);
     setPage(1);
     setIsEmpty(false);
-    setVisible(false);
+    setIsVisible(false);
+    setIsLoading(true);
+
+    try {
+      const { images: newImages, total_pages } = await getImages(newQuery, 1);
+      if (!newImages.length) {
+        setIsEmpty(true);
+        return;
+      }
+      setImages(newImages);
+      setIsVisible(1 < total_pages);
+      localStorage.setItem('query', newQuery);
+      localStorage.setItem('page', JSON.stringify(1));
+      localStorage.setItem('images', JSON.stringify(newImages));
+    } catch (error) {
+      setError(error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const onLoadingMore = () => setPage((prevPage) => prevPage + 1);
+  const onLoadingMore = async () => {
+    const nextPage = page + 1;
+    setIsLoading(true);
+    try {
+      const { images: newImages, total_pages } = await getImages(query, nextPage);
+      if (!newImages.length) {
+        setIsEmpty(true);
+        return;
+      }
+      const updatedImages = [...images, ...newImages];
+      setImages(updatedImages);
+      setPage(nextPage);
+      setIsVisible(nextPage < total_pages);
+      localStorage.setItem('page', JSON.stringify(nextPage));
+      localStorage.setItem('images', JSON.stringify(updatedImages));
+    } catch (error) {
+      setError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const isModalOpen = (src, alt) => {
     setModalIsOpen(true);
@@ -76,7 +109,7 @@ const App = () => {
       )}
       {images.length > 0 && <ImageGallery images={images} openModal={isModalOpen} />}
       {isEmpty && <ErrorMessage message="Sorry, no images were found for your request" />}
-      {isVisible && images.length > 0 && (
+      {isVisible && images.length > 0 && !isLoading && (
         <LoadMoreBtn onClick={onLoadingMore} disabled={isLoading} />
       )}
       <ImageModal
